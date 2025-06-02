@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     novnc \
     websockify \
     curl \
+    wget \
     unzip \
     openssh-client \
     net-tools \
@@ -59,53 +60,7 @@ RUN curl -L https://github.com/novnc/noVNC/archive/refs/tags/v1.3.0.zip -o /tmp/
     rm -rf /tmp/novnc.zip /tmp/noVNC-1.3.0
 
 # Start script
-RUN cat <<'EOF' > /start.sh
-#!/bin/bash
-set -e
-
-DISK="/data/vm.raw"
-IMG="/opt/qemu/ubuntu.img"
-SEED="/opt/qemu/seed.iso"
-
-# Create disk if it doesn't exist
-if [ ! -f "$DISK" ]; then
-    echo "Creating VM disk..."
-    qemu-img convert -f qcow2 -O raw "$IMG" "$DISK"
-    qemu-img resize "$DISK" 50G
-fi
-
-# Start VM
-qemu-system-x86_64 \
-    -enable-kvm \
-    -cpu host \
-    -smp 2 \
-    -m 6144 \
-    -drive file="$DISK",format=raw,if=virtio \
-    -drive file="$SEED",format=raw,if=virtio \
-    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
-    -device virtio-net,netdev=net0 \
-    -vga virtio \
-    -display vnc=:0 \
-    -daemonize
-
-# Start noVNC
-websockify --web=/novnc 6080 localhost:5900 &
-
-echo "================================================"
-echo " 🖥️  VNC: http://localhost:6080/vnc.html"
-echo " 🔐 SSH: ssh root@localhost -p 2222"
-echo " 🧾 Login: root / root"
-echo "================================================"
-
-# Wait for SSH port to be ready
-for i in {1..30}; do
-  nc -z localhost 2222 && echo "✅ VM is ready!" && break
-  echo "⏳ Waiting for SSH..."
-  sleep 2
-done
-
-wait
-EOF
+RUN wget -O /start.sh https://github.com/Snipavn/ubuntu22.04/raw/refs/heads/main/start.sh
 
 RUN chmod +x /start.sh
 
